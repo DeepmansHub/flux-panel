@@ -165,6 +165,7 @@ export default function ForwardPage() {
   const [diagnosisResult, setDiagnosisResult] = useState<DiagnosisResult | null>(null);
   const [addressModalTitle, setAddressModalTitle] = useState('');
   const [addressList, setAddressList] = useState<AddressItem[]>([]);
+  const [editedForwardId, setEditedForwardId] = useState<number | null>(null);
   
   // 导出相关状态
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -201,6 +202,16 @@ export default function ForwardPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (editedForwardId !== null) {
+      const element = document.getElementById(`forward-${editedForwardId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setEditedForwardId(null);
+      }
+    }
+  }, [forwards, editedForwardId]);
 
   // 切换显示模式并保存到localStorage
   const handleViewModeChange = () => {
@@ -560,6 +571,9 @@ export default function ForwardPage() {
       if (res.code === 0) {
         toast.success(isEdit ? '修改成功' : '创建成功');
         setModalOpen(false);
+        if (isEdit && form.id) {
+          setEditedForwardId(form.id);
+        }
         loadData();
       } else {
         toast.error(res.msg || '操作失败');
@@ -1176,9 +1190,13 @@ export default function ForwardPage() {
   const renderForwardCard = (forward: Forward, listeners?: any) => {
     const statusDisplay = getStatusDisplay(forward.status);
     const strategyDisplay = getStrategyDisplay(forward.strategy);
-    
+
     return (
-      <Card key={forward.id} className="group shadow-sm border border-divider hover:shadow-md transition-shadow duration-200">
+      <Card
+        key={forward.id}
+        id={`forward-${forward.id}`}
+        className="group shadow-sm border border-divider hover:shadow-md transition-shadow duration-200"
+      >
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start w-full">
             <div className="flex-1 min-w-0">
