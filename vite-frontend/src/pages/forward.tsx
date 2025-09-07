@@ -165,6 +165,7 @@ export default function ForwardPage() {
   const [diagnosisResult, setDiagnosisResult] = useState<DiagnosisResult | null>(null);
   const [addressModalTitle, setAddressModalTitle] = useState('');
   const [addressList, setAddressList] = useState<AddressItem[]>([]);
+  const [scrollTargetId, setScrollTargetId] = useState<number | null>(null);
   
   // 导出相关状态
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -202,9 +203,31 @@ export default function ForwardPage() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (scrollTargetId !== null) {
+      const element = document.getElementById(`forward-${scrollTargetId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      setScrollTargetId(null);
+    }
+  }, [forwards, scrollTargetId, viewMode]);
+
   // 切换显示模式并保存到localStorage
   const handleViewModeChange = () => {
     const newMode = viewMode === 'grouped' ? 'direct' : 'grouped';
+
+    // 记录当前滚动位置的转发ID
+    const forwardElements = document.querySelectorAll<HTMLElement>('[id^="forward-"]');
+    let targetId: number | null = null;
+    for (const el of forwardElements) {
+      if (el.getBoundingClientRect().top >= 0) {
+        targetId = Number(el.id.replace('forward-', ''));
+        break;
+      }
+    }
+    setScrollTargetId(targetId);
+
     setViewMode(newMode);
     try {
       localStorage.setItem('forward-view-mode', newMode);
@@ -560,6 +583,9 @@ export default function ForwardPage() {
       if (res.code === 0) {
         toast.success(isEdit ? '修改成功' : '创建成功');
         setModalOpen(false);
+        if (isEdit && form.id) {
+          setScrollTargetId(form.id);
+        }
         loadData();
       } else {
         toast.error(res.msg || '操作失败');
@@ -1176,9 +1202,13 @@ export default function ForwardPage() {
   const renderForwardCard = (forward: Forward, listeners?: any) => {
     const statusDisplay = getStatusDisplay(forward.status);
     const strategyDisplay = getStrategyDisplay(forward.strategy);
-    
+
     return (
-      <Card key={forward.id} className="group shadow-sm border border-divider hover:shadow-md transition-shadow duration-200">
+      <Card
+        key={forward.id}
+        id={`forward-${forward.id}`}
+        className="group shadow-sm border border-divider hover:shadow-md transition-shadow duration-200"
+      >
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start w-full">
             <div className="flex-1 min-w-0">
