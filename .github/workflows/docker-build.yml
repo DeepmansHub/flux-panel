@@ -3,7 +3,7 @@ name: Build and Push Vue or Spring Boot Images
 on:
   push:
     branches:
-      - main
+      - dev
     paths:
       - 'vue-frontend/**'
       - 'vite-frontend/**'
