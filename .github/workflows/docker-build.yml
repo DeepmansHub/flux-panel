@@ -3,7 +3,7 @@ name: Build and Push Vue or Spring Boot Images
 on:
   push:
     branches:
-      - main
+      - dev
     paths:
       - 'vue-frontend/**'
       - 'vite-frontend/**'
@@ -46,6 +46,7 @@ jobs:
         uses: dorny/paths-filter@v2
         id: gost-changes
         with:
+          base: 'dev'
           filters: |
             gost:
               - 'go-gost/**'
@@ -126,6 +127,7 @@ jobs:
         uses: dorny/paths-filter@v2
         id: vite-changes
         with:
+          base: 'dev'
           filters: |
             vite:
               - 'vite-frontend/**'
@@ -153,7 +155,7 @@ jobs:
           docker buildx build \
             --platform linux/amd64 \
             --push \
-            -t deepmanshub/vite-frontend \
+            -t deepmanshub/vite-frontend:dev \
             ./vite-frontend
 
   build-java:
@@ -167,6 +169,7 @@ jobs:
         uses: dorny/paths-filter@v2
         id: java-changes
         with:
+          base: 'dev'
           filters: |
             java:
               - 'springboot-backend/**'
@@ -208,5 +211,5 @@ jobs:
           docker buildx build \
             --platform linux/amd64 \
             --push \
-            -t deepmanshub/springboot-backend \
+            -t deepmanshub/springboot-backend:dev \
             ./springboot-backend
