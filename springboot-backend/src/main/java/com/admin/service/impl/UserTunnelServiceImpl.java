@@ -6,8 +6,10 @@ import com.admin.common.dto.UserTunnelUpdateDto;
 import com.admin.common.dto.UserTunnelWithDetailDto;
 import com.admin.common.lang.R;
 import com.admin.entity.UserTunnel;
+import com.admin.entity.User;
 import com.admin.mapper.TunnelMapper;
 import com.admin.mapper.UserTunnelMapper;
+import com.admin.mapper.UserMapper;
 import com.admin.service.TunnelService;
 import com.admin.service.UserTunnelService;
 import com.admin.service.ForwardService;
@@ -71,6 +73,9 @@ public class UserTunnelServiceImpl extends ServiceImpl<UserTunnelMapper, UserTun
     @Autowired
     private NodeService nodeService;
 
+    @Autowired
+    private UserMapper userMapper;
+
     // ========== 公共接口实现 ==========
 
     /**
@@ -89,6 +94,20 @@ public class UserTunnelServiceImpl extends ServiceImpl<UserTunnelMapper, UserTun
         
         // 2. 创建用户隧道权限实体并保存
         UserTunnel userTunnel = buildUserTunnelEntity(userTunnelDto);
+
+        // 同步用户的默认到期时间和流量重置日期
+        if (userTunnel.getExpTime() == null || userTunnel.getFlowResetTime() == null) {
+            User user = userMapper.selectById(userTunnelDto.getUserId());
+            if (user != null) {
+                if (userTunnel.getExpTime() == null) {
+                    userTunnel.setExpTime(user.getExpTime());
+                }
+                if (userTunnel.getFlowResetTime() == null) {
+                    userTunnel.setFlowResetTime(user.getFlowResetTime());
+                }
+            }
+        }
+
         // 设置默认状态为启用
         userTunnel.setStatus(1);
         boolean success = this.save(userTunnel);

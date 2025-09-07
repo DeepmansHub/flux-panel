@@ -15,6 +15,7 @@ import com.admin.mapper.UserMapper;
 import com.admin.mapper.UserTunnelMapper;
 import com.admin.service.*;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -228,8 +229,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 4. 构建更新实体并保存
         User updateUser = buildUpdateUserEntity(userUpdateDto);
         boolean result = this.updateById(updateUser);
-        
+
         if (result) {
+            // 同步更新已绑定隧道的到期时间和流量重置日期
+            UpdateWrapper<UserTunnel> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("user_id", userUpdateDto.getId());
+            boolean tunnelNeedsUpdate = false;
+            if (userUpdateDto.getExpTime() != null) {
+                updateWrapper.set("exp_time", userUpdateDto.getExpTime());
+                tunnelNeedsUpdate = true;
+            }
+            if (userUpdateDto.getFlowResetTime() != null) {
+                updateWrapper.set("flow_reset_time", userUpdateDto.getFlowResetTime());
+                tunnelNeedsUpdate = true;
+            }
+            if (tunnelNeedsUpdate) {
+                userTunnelService.update(updateWrapper);
+            }
+
             // 5. 处理到期时间延时任务
             return R.ok(SUCCESS_UPDATE_MSG);
         } else {
