@@ -338,8 +338,8 @@ export default function UserPage() {
       tunnelId: null,
       flow: 100,
       num: 10,
-      expTime: null,
-      flowResetTime: 0,
+      expTime: user.expTime ? new Date(user.expTime) : null,
+      flowResetTime: user.flowResetTime ?? 0,
       speedId: null
     });
     onTunnelModalOpen();
