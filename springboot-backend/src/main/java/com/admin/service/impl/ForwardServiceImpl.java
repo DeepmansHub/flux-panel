@@ -78,10 +78,31 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
             return R.err("隧道已禁用，无法创建转发");
         }
 
-        // 3. 普通用户权限和限制检查
-        UserPermissionResult permissionResult = checkUserPermissions(currentUser, tunnel, null);
-        if (permissionResult.isHasError()) {
-            return R.err(permissionResult.getErrorMessage());
+        // 3. 确定目标用户（管理员可为他人创建，否则仅当前用户）
+        Integer targetUserId = currentUser.getUserId();
+        String targetUserName = currentUser.getUserName();
+        UserPermissionResult permissionResult;
+        if (forwardDto.getUserId() != null && !Objects.equals(forwardDto.getUserId(), currentUser.getUserId())) {
+            // 非管理员尝试为他人创建，拒绝
+            if (currentUser.getRoleId() != ADMIN_ROLE_ID) {
+                return R.err("仅管理员可为其他用户创建转发");
+            }
+            targetUserId = forwardDto.getUserId();
+            // 管理员为指定用户创建时，按目标用户做权限与限额检查
+            permissionResult = checkTargetUserPermissions(targetUserId, tunnel);
+            if (permissionResult.isHasError()) {
+                return R.err(permissionResult.getErrorMessage());
+            }
+            // 获取目标用户名
+            User u = userService.getById(targetUserId);
+            if (u == null) return R.err("用户不存在");
+            targetUserName = u.getUser();
+        } else {
+            // 普通用户或管理员为自己创建
+            permissionResult = checkUserPermissions(currentUser, tunnel, null);
+            if (permissionResult.isHasError()) {
+                return R.err(permissionResult.getErrorMessage());
+            }
         }
 
         // 4. 分配端口
@@ -90,8 +111,8 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
             return R.err(portAllocation.getErrorMessage());
         }
 
-        // 5. 创建并保存Forward对象
-        Forward forward = createForwardEntity(forwardDto, currentUser, portAllocation);
+        // 5. 创建并保存Forward对象（归属目标用户）
+        Forward forward = createForwardEntity(forwardDto, targetUserId, targetUserName, portAllocation);
         if (!this.save(forward)) {
             return R.err("端口转发创建失败");
         }
@@ -925,18 +946,63 @@ public class ForwardServiceImpl extends ServiceImpl<ForwardMapper, Forward> impl
     /**
      * 创建Forward实体对象
      */
-    private Forward createForwardEntity(ForwardDto forwardDto, UserInfo currentUser, PortAllocation portAllocation) {
+    private Forward createForwardEntity(ForwardDto forwardDto, Integer userId, String userName, PortAllocation portAllocation) {
         Forward forward = new Forward();
         // 先复制DTO的属性，再设置其他属性，避免被覆盖
         BeanUtils.copyProperties(forwardDto, forward);
         forward.setStatus(FORWARD_STATUS_ACTIVE);
         forward.setInPort(portAllocation.getInPort());
         forward.setOutPort(portAllocation.getOutPort());
-        forward.setUserId(currentUser.getUserId());
-        forward.setUserName(currentUser.getUserName());
+        forward.setUserId(userId);
+        forward.setUserName(userName);
         forward.setCreatedTime(System.currentTimeMillis());
         forward.setUpdatedTime(System.currentTimeMillis());
         return forward;
+    }
+
+    /**
+     * 管理员为指定用户创建时，按该用户校验权限与限额
+     */
+    private UserPermissionResult checkTargetUserPermissions(Integer targetUserId, Tunnel tunnel) {
+        // 目标用户信息
+        User userInfo = userService.getById(targetUserId);
+        if (userInfo == null) {
+            return UserPermissionResult.error("用户不存在");
+        }
+        // 与其它位置保持一致：0 视为禁用
+        if (userInfo.getStatus() == 0) {
+            return UserPermissionResult.error("用户已到期或被禁用");
+        }
+        if (userInfo.getExpTime() != null && userInfo.getExpTime() <= System.currentTimeMillis()) {
+            return UserPermissionResult.error("当前账号已到期");
+        }
+
+        // 检查隧道权限
+        UserTunnel userTunnel = getUserTunnel(targetUserId, tunnel.getId().intValue());
+        if (userTunnel == null) {
+            return UserPermissionResult.error("用户没有该隧道权限");
+        }
+        if (userTunnel.getStatus() != 1) {
+            return UserPermissionResult.error("隧道被禁用");
+        }
+        if (userTunnel.getExpTime() != null && userTunnel.getExpTime() <= System.currentTimeMillis()) {
+            return UserPermissionResult.error("用户的该隧道权限已到期");
+        }
+
+        // 流量与数量限制（与普通用户一致）
+        if (userInfo.getFlow() <= 0) {
+            return UserPermissionResult.error("用户总流量已用完");
+        }
+        if (userTunnel.getFlow() <= 0) {
+            return UserPermissionResult.error("该隧道流量已用完");
+        }
+
+        R quotaCheckResult = checkForwardQuota(targetUserId, tunnel.getId().intValue(), userTunnel, userInfo, null);
+        if (quotaCheckResult.getCode() != 0) {
+            return UserPermissionResult.error("用户" + quotaCheckResult.getMsg());
+        }
+
+        return UserPermissionResult.success(userTunnel.getSpeedId(), userTunnel);
     }
 
     /**
