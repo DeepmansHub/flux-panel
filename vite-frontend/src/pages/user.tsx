@@ -366,12 +366,13 @@ export default function UserPage() {
 
       if (response.code === 0) {
         toast.success('分配成功');
+        // 分配成功后，保持到期时间默认沿用用户到期时间，便于连续分配多个隧道
         setTunnelForm({
           tunnelId: null,
           flow: 100,
           num: 10,
-          expTime: null,
-          flowResetTime: 0,
+          expTime: currentUser.expTime ? new Date(currentUser.expTime) : null,
+          flowResetTime: currentUser.flowResetTime ?? 0,
           speedId: null
         });
         loadUserTunnels(currentUser.id);
