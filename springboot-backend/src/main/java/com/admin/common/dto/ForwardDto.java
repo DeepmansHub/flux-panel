@@ -11,6 +11,11 @@ import javax.validation.constraints.Max;
 @Data
 public class ForwardDto {
 
+    /**
+     * 目标用户ID（仅管理员可指定；不传则默认当前用户）
+     */
+    private Integer userId;
+
     @NotBlank(message = "转发名称不能为空")
     private String name;
     

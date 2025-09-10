@@ -42,9 +42,11 @@ import {
   pauseForwardService,
   resumeForwardService,
   diagnoseForward,
-  updateForwardOrder
+  updateForwardOrder,
+  getAllUsers
 } from "@/api";
 import { JwtUtil } from "@/utils/jwt";
+import { isAdmin as isAdminRole } from "@/utils/auth";
 
 interface Forward {
   id: number;
@@ -123,6 +125,8 @@ export default function ForwardPage() {
   const [loading, setLoading] = useState(true);
   const [forwards, setForwards] = useState<Forward[]>([]);
   const [tunnels, setTunnels] = useState<Tunnel[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
   
   // 检测是否为移动端
   const [isMobile, setIsMobile] = useState(false);
@@ -200,8 +204,24 @@ export default function ForwardPage() {
   const [selectedTunnel, setSelectedTunnel] = useState<Tunnel | null>(null);
 
   useEffect(() => {
+    const adminFlag = isAdminRole();
+    setIsAdmin(adminFlag);
     loadData();
+    if (adminFlag) {
+      loadUsers();
+    }
   }, []);
+
+  const loadUsers = async () => {
+    try {
+      const res = await getAllUsers({});
+      if (res.code === 0) {
+        setUsers(res.data || []);
+      }
+    } catch (e) {
+      console.warn('获取用户列表失败', e);
+    }
+  };
 
   useEffect(() => {
     if (editedForwardId !== null) {
@@ -449,7 +469,9 @@ export default function ForwardPage() {
   // 新增转发
   const handleAdd = () => {
     setIsEdit(false);
+    const currentUserId = JwtUtil.getUserIdFromToken();
     setForm({
+      userId: isAdmin && currentUserId !== null ? currentUserId : undefined,
       name: '',
       tunnelId: null,
       inPort: null,
@@ -460,6 +482,27 @@ export default function ForwardPage() {
     setSelectedTunnel(null);
     setErrors({});
     setModalOpen(true);
+  };
+
+  // 加载指定用户的可用隧道（管理员为他人创建时进行过滤）
+  const loadTunnelsForUser = async (selectedUserId?: number | null) => {
+    try {
+      const currentUserId = JwtUtil.getUserIdFromToken();
+      const targetUserId = (isAdmin && selectedUserId !== undefined && selectedUserId !== null && currentUserId !== null && selectedUserId !== currentUserId)
+        ? selectedUserId
+        : undefined;
+      const tunnelsRes = await userTunnel(targetUserId);
+      if (tunnelsRes.code === 0) {
+        const newTunnels = tunnelsRes.data || [];
+        setTunnels(newTunnels);
+        if (form.tunnelId && !newTunnels.some((t: any) => t.id === form.tunnelId)) {
+          setForm(prev => ({ ...prev, tunnelId: null }));
+          setSelectedTunnel(null);
+        }
+      }
+    } catch (e) {
+      console.warn('加载用户可用隧道失败', e);
+    }
   };
 
   // 编辑转发
@@ -524,7 +567,20 @@ export default function ForwardPage() {
   const handleTunnelChange = (tunnelId: string) => {
     const tunnel = tunnels.find(t => t.id === parseInt(tunnelId));
     setSelectedTunnel(tunnel || null);
-    setForm(prev => ({ ...prev, tunnelId: parseInt(tunnelId) }));
+    setForm(prev => {
+      const next: any = { ...prev, tunnelId: parseInt(tunnelId) };
+      // 若已填写入口端口且超出新隧道范围，则清空
+      if (tunnel && prev.inPort) {
+        const min = (tunnel as any).inNodePortSta;
+        const max = (tunnel as any).inNodePortEnd;
+        if (typeof min === 'number' && typeof max === 'number') {
+          if (prev.inPort < min || prev.inPort > max) {
+            next.inPort = null;
+          }
+        }
+      }
+      return next;
+    });
   };
 
   // 提交表单
@@ -533,6 +589,14 @@ export default function ForwardPage() {
     
     setSubmitLoading(true);
     try {
+      // 非管理员前端防护：禁止为其他用户创建
+      const currentUserId = JwtUtil.getUserIdFromToken();
+      if (!isAdmin && form.userId !== undefined && currentUserId !== null && form.userId !== currentUserId) {
+        toast.error('权限不足：非管理员不可为其他用户创建');
+        setSubmitLoading(false);
+        return;
+      }
+
       const processedRemoteAddr = form.remoteAddr
         .split('\n')
         .map(addr => addr.trim())
@@ -546,7 +610,7 @@ export default function ForwardPage() {
         // 更新时确保包含必要字段
         const updateData = {
           id: form.id,
-          userId: form.userId,
+          userId: isAdmin ? form.userId : (JwtUtil.getUserIdFromToken() ?? form.userId),
           name: form.name,
           tunnelId: form.tunnelId,
           inPort: form.inPort,
@@ -557,7 +621,8 @@ export default function ForwardPage() {
         res = await updateForward(updateData);
       } else {
         // 创建时不需要id和userId（后端会自动设置）
-        const createData = {
+        const currentUserId = JwtUtil.getUserIdFromToken();
+        const createData: any = {
           name: form.name,
           tunnelId: form.tunnelId,
           inPort: form.inPort,
@@ -565,6 +630,9 @@ export default function ForwardPage() {
           interfaceName: form.interfaceName,
           strategy: addressCount > 1 ? form.strategy : 'fifo'
         };
+        if (isAdmin && (form.userId || currentUserId !== null)) {
+          createData.userId = form.userId ?? currentUserId;
+        }
         res = await createForward(createData);
       }
       
@@ -1583,7 +1651,7 @@ export default function ForwardPage() {
                 </ModalHeader>
                 <ModalBody>
                   <div className="space-y-4 pb-4">
-                    <Input
+                  <Input
                       label="转发名称"
                       placeholder="请输入转发名称"
                       value={form.name}
@@ -1593,6 +1661,38 @@ export default function ForwardPage() {
                       variant="bordered"
                     />
                     
+                    {isAdmin && !isEdit && (() => {
+                      const currentUserId = JwtUtil.getUserIdFromToken();
+                      const adminSelf = currentUserId !== null ? [{ id: currentUserId, user: 'admin' }] : [] as any[];
+                      const userOptions = [...adminSelf, ...users];
+                      const selected = (form.userId ?? currentUserId ?? '').toString();
+
+                      return (
+                        <Select
+                          label="所属用户"
+                          placeholder="请选择创建到哪个用户下"
+                          selectedKeys={selected ? [selected] : []}
+                          onSelectionChange={(keys) => {
+                            const selectedKey = Array.from(keys)[0] as string;
+                            if (selectedKey) {
+                              const uid = parseInt(selectedKey);
+                              setForm(prev => ({ ...prev, userId: uid, inPort: null }));
+                              loadTunnelsForUser(uid);
+                            }
+                          }}
+                          variant="bordered"
+                          description="仅管理员可选择其他用户；默认选择为管理员本人"
+                          items={userOptions}
+                        >
+                          {(item: any) => (
+                            <SelectItem key={item.id}>
+                              {item.user}
+                            </SelectItem>
+                          )}
+                        </Select>
+                      );
+                    })()}
+
                     <Select
                       label="选择隧道"
                       placeholder="请选择关联的隧道"
