@@ -46,9 +46,12 @@ public interface TunnelService extends IService<Tunnel> {
 
     /**
      * 获取用户可用的隧道列表
+     * - 非管理员：忽略入参，返回当前登录用户可用隧道
+     * - 管理员：当传入 targetUserId 且不为自己时，返回该用户可用隧道，否则返回管理员可见隧道
+     * @param targetUserId 目标用户ID（可选，仅管理员生效）
      * @return 结果
      */
-    R userTunnel();
+    R userTunnel(Integer targetUserId);
 
     /**
      * 隧道诊断功能

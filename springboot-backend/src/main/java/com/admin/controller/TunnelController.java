@@ -120,8 +120,14 @@ public class TunnelController extends BaseController {
 
     @LogAnnotation
     @PostMapping("/user/tunnel")
-    public R userTunnel() {
-        return tunnelService.userTunnel();
+    public R userTunnel(@RequestBody(required = false) Map<String, Object> params) {
+        Integer targetUserId = null;
+        if (params != null && params.get("userId") != null) {
+            try {
+                targetUserId = Integer.valueOf(params.get("userId").toString());
+            } catch (Exception ignored) {}
+        }
+        return tunnelService.userTunnel(targetUserId);
     }
 
     /**
