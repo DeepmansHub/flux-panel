@@ -253,13 +253,20 @@ public class TunnelServiceImpl extends ServiceImpl<TunnelMapper, Tunnel> impleme
      * @return 用户可用隧道列表响应
      */
     @Override
-    public R userTunnel() {
+    public R userTunnel(Integer targetUserId) {
         UserInfo currentUser = getCurrentUserInfo();
-        
-        // 根据用户角色获取隧道列表
-        List<Tunnel> tunnelEntities = getUserAccessibleTunnels(currentUser);
-        
-        // 转换为DTO并返回
+
+        List<Tunnel> tunnelEntities;
+        if (currentUser.getRoleId() == ADMIN_ROLE_ID &&
+                targetUserId != null &&
+                !Objects.equals(targetUserId, currentUser.getUserId())) {
+            // 管理员为其他用户查看：只返回该用户有权限的启用隧道
+            tunnelEntities = getUserAuthorizedTunnels(targetUserId);
+        } else {
+            // 非管理员或未指定目标用户：保持原逻辑
+            tunnelEntities = getUserAccessibleTunnels(currentUser);
+        }
+
         List<TunnelListDto> tunnelDtos = convertToTunnelListDtos(tunnelEntities);
         return R.ok(tunnelDtos);
     }

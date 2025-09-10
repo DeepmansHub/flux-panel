@@ -484,6 +484,27 @@ export default function ForwardPage() {
     setModalOpen(true);
   };
 
+  // 加载指定用户的可用隧道（管理员为他人创建时进行过滤）
+  const loadTunnelsForUser = async (selectedUserId?: number | null) => {
+    try {
+      const currentUserId = JwtUtil.getUserIdFromToken();
+      const targetUserId = (isAdmin && selectedUserId !== undefined && selectedUserId !== null && currentUserId !== null && selectedUserId !== currentUserId)
+        ? selectedUserId
+        : undefined;
+      const tunnelsRes = await userTunnel(targetUserId);
+      if (tunnelsRes.code === 0) {
+        const newTunnels = tunnelsRes.data || [];
+        setTunnels(newTunnels);
+        if (form.tunnelId && !newTunnels.some((t: any) => t.id === form.tunnelId)) {
+          setForm(prev => ({ ...prev, tunnelId: null }));
+          setSelectedTunnel(null);
+        }
+      }
+    } catch (e) {
+      console.warn('加载用户可用隧道失败', e);
+    }
+  };
+
   // 编辑转发
   const handleEdit = (forward: Forward) => {
     setIsEdit(true);
@@ -1641,7 +1662,9 @@ export default function ForwardPage() {
                           onSelectionChange={(keys) => {
                             const selectedKey = Array.from(keys)[0] as string;
                             if (selectedKey) {
-                              setForm(prev => ({ ...prev, userId: parseInt(selectedKey) }));
+                              const uid = parseInt(selectedKey);
+                              setForm(prev => ({ ...prev, userId: uid }));
+                              loadTunnelsForUser(uid);
                             }
                           }}
                           variant="bordered"
