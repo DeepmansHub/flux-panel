@@ -1619,33 +1619,35 @@ export default function ForwardPage() {
                       variant="bordered"
                     />
                     
-                    {isAdmin && !isEdit && (
-                      <Select
-                        label="所属用户"
-                        placeholder="请选择创建到哪个用户下"
-                        selectedKeys={(form.userId ?? JwtUtil.getUserIdFromToken() ?? '').toString() ? [(form.userId ?? JwtUtil.getUserIdFromToken() ?? '').toString()] : []}
-                        onSelectionChange={(keys) => {
-                          const selectedKey = Array.from(keys)[0] as string;
-                          if (selectedKey) {
-                            setForm(prev => ({ ...prev, userId: parseInt(selectedKey) }));
-                          }
-                        }}
-                        variant="bordered"
-                        description="仅管理员可选择其他用户；默认选择为管理员本人"
-                      >
-                        {(() => {
-                          const currentUserId = JwtUtil.getUserIdFromToken();
-                          return currentUserId !== null ? (
-                            <SelectItem key={currentUserId}>管理员本人</SelectItem>
-                          ) : null;
-                        })()}
-                        {users.map((u: any) => (
-                          <SelectItem key={u.id}>
-                            {u.user}
-                          </SelectItem>
-                        ))}
-                      </Select>
-                    )}
+                    {isAdmin && !isEdit && (() => {
+                      const currentUserId = JwtUtil.getUserIdFromToken();
+                      const adminSelf = currentUserId !== null ? [{ id: currentUserId, user: '管理员本人' }] : [] as any[];
+                      const userOptions = [...adminSelf, ...users];
+                      const selected = (form.userId ?? currentUserId ?? '').toString();
+
+                      return (
+                        <Select
+                          label="所属用户"
+                          placeholder="请选择创建到哪个用户下"
+                          selectedKeys={selected ? [selected] : []}
+                          onSelectionChange={(keys) => {
+                            const selectedKey = Array.from(keys)[0] as string;
+                            if (selectedKey) {
+                              setForm(prev => ({ ...prev, userId: parseInt(selectedKey) }));
+                            }
+                          }}
+                          variant="bordered"
+                          description="仅管理员可选择其他用户；默认选择为管理员本人"
+                          items={userOptions}
+                        >
+                          {(item: any) => (
+                            <SelectItem key={item.id}>
+                              {item.user}
+                            </SelectItem>
+                          )}
+                        </Select>
+                      );
+                    })()}
 
                     <Select
                       label="选择隧道"
