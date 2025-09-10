@@ -567,7 +567,20 @@ export default function ForwardPage() {
   const handleTunnelChange = (tunnelId: string) => {
     const tunnel = tunnels.find(t => t.id === parseInt(tunnelId));
     setSelectedTunnel(tunnel || null);
-    setForm(prev => ({ ...prev, tunnelId: parseInt(tunnelId) }));
+    setForm(prev => {
+      const next: any = { ...prev, tunnelId: parseInt(tunnelId) };
+      // 若已填写入口端口且超出新隧道范围，则清空
+      if (tunnel && prev.inPort) {
+        const min = (tunnel as any).inNodePortSta;
+        const max = (tunnel as any).inNodePortEnd;
+        if (typeof min === 'number' && typeof max === 'number') {
+          if (prev.inPort < min || prev.inPort > max) {
+            next.inPort = null;
+          }
+        }
+      }
+      return next;
+    });
   };
 
   // 提交表单
@@ -1663,7 +1676,7 @@ export default function ForwardPage() {
                             const selectedKey = Array.from(keys)[0] as string;
                             if (selectedKey) {
                               const uid = parseInt(selectedKey);
-                              setForm(prev => ({ ...prev, userId: uid }));
+                              setForm(prev => ({ ...prev, userId: uid, inPort: null }));
                               loadTunnelsForUser(uid);
                             }
                           }}
