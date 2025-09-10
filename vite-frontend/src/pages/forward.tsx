@@ -42,9 +42,11 @@ import {
   pauseForwardService,
   resumeForwardService,
   diagnoseForward,
-  updateForwardOrder
+  updateForwardOrder,
+  getAllUsers
 } from "@/api";
 import { JwtUtil } from "@/utils/jwt";
+import { isAdmin as isAdminRole } from "@/utils/auth";
 
 interface Forward {
   id: number;
@@ -123,6 +125,8 @@ export default function ForwardPage() {
   const [loading, setLoading] = useState(true);
   const [forwards, setForwards] = useState<Forward[]>([]);
   const [tunnels, setTunnels] = useState<Tunnel[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
   
   // 检测是否为移动端
   const [isMobile, setIsMobile] = useState(false);
@@ -200,8 +204,24 @@ export default function ForwardPage() {
   const [selectedTunnel, setSelectedTunnel] = useState<Tunnel | null>(null);
 
   useEffect(() => {
+    const adminFlag = isAdminRole();
+    setIsAdmin(adminFlag);
     loadData();
+    if (adminFlag) {
+      loadUsers();
+    }
   }, []);
+
+  const loadUsers = async () => {
+    try {
+      const res = await getAllUsers({});
+      if (res.code === 0) {
+        setUsers(res.data || []);
+      }
+    } catch (e) {
+      console.warn('获取用户列表失败', e);
+    }
+  };
 
   useEffect(() => {
     if (editedForwardId !== null) {
@@ -449,7 +469,9 @@ export default function ForwardPage() {
   // 新增转发
   const handleAdd = () => {
     setIsEdit(false);
+    const currentUserId = JwtUtil.getUserIdFromToken();
     setForm({
+      userId: isAdmin && currentUserId !== null ? currentUserId : undefined,
       name: '',
       tunnelId: null,
       inPort: null,
@@ -557,7 +579,8 @@ export default function ForwardPage() {
         res = await updateForward(updateData);
       } else {
         // 创建时不需要id和userId（后端会自动设置）
-        const createData = {
+        const currentUserId = JwtUtil.getUserIdFromToken();
+        const createData: any = {
           name: form.name,
           tunnelId: form.tunnelId,
           inPort: form.inPort,
@@ -565,6 +588,9 @@ export default function ForwardPage() {
           interfaceName: form.interfaceName,
           strategy: addressCount > 1 ? form.strategy : 'fifo'
         };
+        if (isAdmin && (form.userId || currentUserId !== null)) {
+          createData.userId = form.userId ?? currentUserId;
+        }
         res = await createForward(createData);
       }
       
@@ -1583,7 +1609,7 @@ export default function ForwardPage() {
                 </ModalHeader>
                 <ModalBody>
                   <div className="space-y-4 pb-4">
-                    <Input
+                  <Input
                       label="转发名称"
                       placeholder="请输入转发名称"
                       value={form.name}
@@ -1593,6 +1619,34 @@ export default function ForwardPage() {
                       variant="bordered"
                     />
                     
+                    {isAdmin && !isEdit && (
+                      <Select
+                        label="所属用户"
+                        placeholder="请选择创建到哪个用户下"
+                        selectedKeys={(form.userId ?? JwtUtil.getUserIdFromToken() ?? '').toString() ? [(form.userId ?? JwtUtil.getUserIdFromToken() ?? '').toString()] : []}
+                        onSelectionChange={(keys) => {
+                          const selectedKey = Array.from(keys)[0] as string;
+                          if (selectedKey) {
+                            setForm(prev => ({ ...prev, userId: parseInt(selectedKey) }));
+                          }
+                        }}
+                        variant="bordered"
+                        description="仅管理员可选择其他用户；默认选择为管理员本人"
+                      >
+                        {(() => {
+                          const currentUserId = JwtUtil.getUserIdFromToken();
+                          return currentUserId !== null ? (
+                            <SelectItem key={currentUserId}>管理员本人</SelectItem>
+                          ) : null;
+                        })()}
+                        {users.map((u: any) => (
+                          <SelectItem key={u.id}>
+                            {u.user}
+                          </SelectItem>
+                        ))}
+                      </Select>
+                    )}
+
                     <Select
                       label="选择隧道"
                       placeholder="请选择关联的隧道"
