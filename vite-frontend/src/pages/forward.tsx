@@ -555,6 +555,14 @@ export default function ForwardPage() {
     
     setSubmitLoading(true);
     try {
+      // 非管理员前端防护：禁止为其他用户创建
+      const currentUserId = JwtUtil.getUserIdFromToken();
+      if (!isAdmin && form.userId !== undefined && currentUserId !== null && form.userId !== currentUserId) {
+        toast.error('权限不足：非管理员不可为其他用户创建');
+        setSubmitLoading(false);
+        return;
+      }
+
       const processedRemoteAddr = form.remoteAddr
         .split('\n')
         .map(addr => addr.trim())
@@ -568,7 +576,7 @@ export default function ForwardPage() {
         // 更新时确保包含必要字段
         const updateData = {
           id: form.id,
-          userId: form.userId,
+          userId: isAdmin ? form.userId : (JwtUtil.getUserIdFromToken() ?? form.userId),
           name: form.name,
           tunnelId: form.tunnelId,
           inPort: form.inPort,
@@ -1621,7 +1629,7 @@ export default function ForwardPage() {
                     
                     {isAdmin && !isEdit && (() => {
                       const currentUserId = JwtUtil.getUserIdFromToken();
-                      const adminSelf = currentUserId !== null ? [{ id: currentUserId, user: '管理员本人' }] : [] as any[];
+                      const adminSelf = currentUserId !== null ? [{ id: currentUserId, user: 'admin' }] : [] as any[];
                       const userOptions = [...adminSelf, ...users];
                       const selected = (form.userId ?? currentUserId ?? '').toString();
 
