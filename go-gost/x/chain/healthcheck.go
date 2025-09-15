@@ -8,6 +8,7 @@ import (
 	"time"
 
 	corechain "github.com/go-gost/core/chain"
+	"github.com/go-gost/core/logger"
 	"github.com/go-gost/core/selector"
 )
 
@@ -18,23 +19,43 @@ const (
 
 // healthCheck periodically checks each chain and marks failures.
 func (p *chainGroup) healthCheck() {
+	log := logger.Default().WithFields(map[string]any{"kind": "health-check"})
+	p.checkChains(log)
 	ticker := time.NewTicker(healthCheckInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		for _, ch := range p.chains {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			err := probeChain(ctx, ch)
-			cancel()
-			if m, ok := ch.(selector.Markable); ok {
-				if marker := m.Marker(); marker != nil {
-					if err != nil {
-						marker.Mark()
-					} else {
-						marker.Reset()
+		p.checkChains(log)
+	}
+}
+
+func (p *chainGroup) checkChains(log logger.Logger) {
+	for _, ch := range p.chains {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err := probeChain(ctx, ch)
+		cancel()
+
+		name := ""
+		if cn, ok := ch.(chainNamer); ok {
+			name = cn.Name()
+		}
+
+		if m, ok := ch.(selector.Markable); ok {
+			if marker := m.Marker(); marker != nil {
+				if err != nil {
+					log.Warnf("chain %s health check failed: %v", name, err)
+					marker.Mark()
+				} else {
+					if marker.Count() > 0 {
+						log.Infof("chain %s back to normal", name)
 					}
+					marker.Reset()
 				}
+				continue
 			}
+		}
+		if err != nil {
+			log.Warnf("chain %s health check failed: %v", name, err)
 		}
 	}
 }
