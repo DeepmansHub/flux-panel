@@ -94,16 +94,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # 确保 tag 指向当前 commit
-          git tag -f gost-latest ${{ github.sha }}
-          git push origin gost-latest --force
+          git tag -f gost-dev ${{ github.sha }}
+          git push origin gost-dev --force
 
           # 检查 release 是否存在，不存在则创建
-          if gh release view gost-latest 2>/dev/null; then
+          if gh release view gost-dev 2>/dev/null; then
             echo "Release exists, will update assets"
           else
             echo "Release not found, creating new release"
-            gh release create gost-latest gost-latest \
-              --title "GOST Binary Latest" \
+            gh release create gost-dev gost-dev \
+              --title "GOST Binary Dev" \
               --notes "GOST binary compiled from commit ${{ github.sha }}
           
           - Platform: Linux AMD64
@@ -113,7 +113,7 @@ jobs:
           fi
 
           # 上传 asset 并覆盖同名文件
-          gh release upload gost-latest ./go-gost/gost --clobber
+          gh release upload gost-dev ./go-gost/gost --clobber
 
 
   build-vite:
