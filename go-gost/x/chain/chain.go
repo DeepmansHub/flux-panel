@@ -118,7 +118,12 @@ type chainGroup struct {
 }
 
 func NewChainGroup(chains ...chain.Chainer) *chainGroup {
-	return &chainGroup{chains: chains}
+	//return &chainGroup{chains: chains}
+	g := &chainGroup{chains: chains}
+	if len(chains) > 1 {
+		go g.healthCheck()
+	}
+	return g
 }
 
 func (p *chainGroup) WithSelector(s selector.Selector[chain.Chainer]) *chainGroup {
