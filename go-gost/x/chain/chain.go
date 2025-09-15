@@ -143,5 +143,9 @@ func (p *chainGroup) next(ctx context.Context) chain.Chainer {
 		return nil
 	}
 
-	return p.selector.Select(ctx, p.chains...)
+	ch := p.selector.Select(ctx, p.chains...)
+	if cn, ok := ch.(chainNamer); ok {
+		logger.Default().WithFields(map[string]any{"kind": "chain-group"}).Debugf("select chain %s", cn.Name())
+	}
+	return ch
 }
