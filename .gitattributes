@@ -1,1 +1,2 @@
 .github/workflows/docker-build.yml merge=ours
+.github/workflows/workflow.yaml diff=ignore
