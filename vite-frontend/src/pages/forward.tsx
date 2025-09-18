@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
@@ -47,6 +47,7 @@ import {
 } from "@/api";
 import { JwtUtil } from "@/utils/jwt";
 import { isAdmin as isAdminRole } from "@/utils/auth";
+import type { User } from "@/types";
 
 interface Forward {
   id: number;
@@ -66,6 +67,7 @@ interface Forward {
   userName?: string;
   userId?: number;
   inx?: number;
+  userStatus?: number;
 }
 
 interface Tunnel {
@@ -112,6 +114,7 @@ interface DiagnosisResult {
 interface UserGroup {
   userId: number | null;
   userName: string;
+  userStatus?: number;
   tunnelGroups: TunnelGroup[];
 }
 
@@ -126,7 +129,7 @@ export default function ForwardPage() {
   const [forwards, setForwards] = useState<Forward[]>([]);
   const [tunnels, setTunnels] = useState<Tunnel[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   
   // 检测是否为移动端
   const [isMobile, setIsMobile] = useState(false);
@@ -216,12 +219,23 @@ export default function ForwardPage() {
     try {
       const res = await getAllUsers({});
       if (res.code === 0) {
-        setUsers(res.data || []);
+        const userList = Array.isArray(res.data) ? (res.data as User[]) : [];
+        setUsers(userList);
       }
     } catch (e) {
       console.warn('获取用户列表失败', e);
     }
   };
+
+  const userStatusMap = useMemo(() => {
+    const statusMap = new Map<number, number>();
+    users.forEach((user) => {
+      if (typeof user.id === 'number') {
+        statusMap.set(user.id, user.status);
+      }
+    });
+    return statusMap;
+  }, [users]);
 
   useEffect(() => {
     if (editedForwardId !== null) {
@@ -382,20 +396,27 @@ export default function ForwardPage() {
     
     // 获取排序后的转发列表
     const sortedForwards = getSortedForwards();
-    
+
     sortedForwards.forEach(forward => {
-      const userKey = forward.userId ? forward.userId.toString() : 'unknown';
+      const userKey = forward.userId != null ? forward.userId.toString() : 'unknown';
       const userName = forward.userName || '未知用户';
-      
+      const statusFromForward = typeof forward.userStatus === 'number' ? forward.userStatus : undefined;
+      const statusFromMap = forward.userId != null ? userStatusMap.get(forward.userId) : undefined;
+      const resolvedStatus = statusFromForward ?? statusFromMap;
+
       if (!userMap.has(userKey)) {
         userMap.set(userKey, {
-          userId: forward.userId || null,
+          userId: forward.userId ?? null,
           userName,
+          userStatus: resolvedStatus,
           tunnelGroups: []
         });
       }
-      
+
       const userGroup = userMap.get(userKey)!;
+      if (resolvedStatus !== undefined) {
+        userGroup.userStatus = resolvedStatus;
+      }
       let tunnelGroup = userGroup.tunnelGroups.find(tg => tg.tunnelId === forward.tunnelId);
       
       if (!tunnelGroup) {
@@ -1526,9 +1547,16 @@ export default function ForwardPage() {
                           </p>
                         </div>
                       </div>
-                      <Chip color="primary" variant="flat" size="sm" className="text-xs flex-shrink-0 ml-2">
-                        用户
-                      </Chip>
+                      <div className="flex items-center gap-1.5 ml-2">
+                        {userGroup.userStatus === 0 && (
+                          <Chip color="danger" variant="flat" size="sm" className="text-xs flex-shrink-0">
+                            禁用
+                          </Chip>
+                        )}
+                        <Chip color="primary" variant="flat" size="sm" className="text-xs flex-shrink-0">
+                          用户
+                        </Chip>
+                      </div>
                     </div>
                   </CardHeader>
                   
@@ -1663,8 +1691,8 @@ export default function ForwardPage() {
                     
                     {isAdmin && !isEdit && (() => {
                       const currentUserId = JwtUtil.getUserIdFromToken();
-                      const adminSelf = currentUserId !== null ? [{ id: currentUserId, user: 'admin' }] : [] as any[];
-                      const userOptions = [...adminSelf, ...users];
+                      const adminSelf: User[] = currentUserId !== null ? [{ id: currentUserId, user: 'admin', status: 1, flow: 0, num: 0 }] : [];
+                      const userOptions: User[] = [...adminSelf, ...users];
                       const selected = (form.userId ?? currentUserId ?? '').toString();
 
                       return (
@@ -1684,7 +1712,7 @@ export default function ForwardPage() {
                           description="仅管理员可选择其他用户；默认选择为管理员本人"
                           items={userOptions}
                         >
-                          {(item: any) => (
+                          {(item: User) => (
                             <SelectItem key={item.id}>
                               {item.user}
                             </SelectItem>
