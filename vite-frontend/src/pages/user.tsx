@@ -52,6 +52,8 @@ import { SearchIcon, EditIcon, DeleteIcon, UserIcon, SettingsIcon } from '@/comp
 import { parseDate } from "@internationalized/date";
 
 
+const USER_SCROLL_POSITION_STORAGE_KEY = 'userPageScrollPosition';
+
 // 工具函数
 const formatFlow = (value: number, unit: string = 'bytes'): string => {
   if (unit === 'gb') {
@@ -181,6 +183,25 @@ export default function UserPage() {
   }, [pagination.current, pagination.size, searchKeyword]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const storedPosition = window.sessionStorage.getItem(USER_SCROLL_POSITION_STORAGE_KEY);
+
+    if (storedPosition) {
+      const parsedPosition = Number(storedPosition);
+
+      if (!Number.isNaN(parsedPosition)) {
+        scrollPositionRef.current = parsedPosition;
+        shouldRestoreScrollRef.current = true;
+      } else {
+        window.sessionStorage.removeItem(USER_SCROLL_POSITION_STORAGE_KEY);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (!loading && shouldRestoreScrollRef.current) {
       const position = scrollPositionRef.current;
 
@@ -195,6 +216,10 @@ export default function UserPage() {
 
       shouldRestoreScrollRef.current = false;
       scrollPositionRef.current = null;
+
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(USER_SCROLL_POSITION_STORAGE_KEY);
+      }
     }
   }, [loading]);
 
@@ -340,8 +365,13 @@ export default function UserPage() {
       if (response.code === 0) {
         toast.success(isEdit ? '更新成功' : '创建成功');
         if (isEdit && typeof window !== 'undefined') {
-          scrollPositionRef.current = window.scrollY;
+          const currentScrollY = window.scrollY;
+          scrollPositionRef.current = currentScrollY;
           shouldRestoreScrollRef.current = true;
+          window.sessionStorage.setItem(
+            USER_SCROLL_POSITION_STORAGE_KEY,
+            String(currentScrollY)
+          );
         }
         onUserModalClose();
         loadUsers();
