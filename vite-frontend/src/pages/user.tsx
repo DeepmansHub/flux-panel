@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Input } from "@heroui/input";
@@ -97,9 +97,82 @@ const calculateUserTotalUsedFlow = (user: User): number => {
 const calculateTunnelUsedFlow = (tunnel: UserTunnel): number => {
   const inFlow = tunnel.inFlow || 0;
   const outFlow = tunnel.outFlow || 0;
-  
+
   // 后端已按计费类型处理流量，前端直接使用入站+出站总和
   return inFlow + outFlow;
+};
+
+const getCurrentScrollTop = (): number => {
+  if (typeof window === 'undefined') {
+    return 0;
+  }
+
+  if (typeof window.pageYOffset === 'number') {
+    return window.pageYOffset;
+  }
+
+  if (typeof document !== 'undefined') {
+    if (document.documentElement && typeof document.documentElement.scrollTop === 'number') {
+      return document.documentElement.scrollTop;
+    }
+
+    if (document.body && typeof document.body.scrollTop === 'number') {
+      return document.body.scrollTop;
+    }
+  }
+
+  return 0;
+};
+
+const setScrollTopValue = (value: number) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const safeValue = Math.max(0, value);
+
+  try {
+    window.scrollTo({ top: safeValue, left: 0, behavior: 'auto' });
+  } catch (error) {
+    window.scrollTo(0, safeValue);
+  }
+
+  if (typeof document !== 'undefined') {
+    if (document.documentElement) {
+      document.documentElement.scrollTop = safeValue;
+    }
+    if (document.body) {
+      document.body.scrollTop = safeValue;
+    }
+  }
+};
+
+const restoreScrollByPosition = (value: number): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  setScrollTopValue(value);
+
+  const currentTop = getCurrentScrollTop();
+  return Math.abs(currentTop - Math.max(0, value)) <= 2;
+};
+
+const scrollUserCardIntoView = (userId: number | null): boolean => {
+  if (typeof document === 'undefined' || userId === null) {
+    return false;
+  }
+
+  const target = document.querySelector<HTMLElement>(`[data-user-id="${userId}"]`);
+
+  if (!target) {
+    return false;
+  }
+
+  const rect = target.getBoundingClientRect();
+  const desiredTop = Math.max(0, rect.top + getCurrentScrollTop() - 16);
+
+  return restoreScrollByPosition(desiredTop);
 };
 
 export default function UserPage() {
@@ -170,6 +243,9 @@ export default function UserPage() {
   // 其他数据
   const [tunnels, setTunnels] = useState<Tunnel[]>([]);
   const [speedLimits, setSpeedLimits] = useState<SpeedLimit[]>([]);
+  const scrollPositionRef = useRef<number | null>(null);
+  const shouldRestoreScrollRef = useRef(false);
+  const lastEditedUserIdRef = useRef<number | null>(null);
 
   // 生命周期
   useEffect(() => {
@@ -177,6 +253,58 @@ export default function UserPage() {
     loadTunnels();
     loadSpeedLimits();
   }, [pagination.current, pagination.size, searchKeyword]);
+
+  useEffect(() => {
+    if (!shouldRestoreScrollRef.current || loading) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      shouldRestoreScrollRef.current = false;
+      scrollPositionRef.current = null;
+      lastEditedUserIdRef.current = null;
+      return;
+    }
+
+    let animationFrameId: number | null = null;
+    let attempts = 0;
+
+    const resetRestorationState = () => {
+      shouldRestoreScrollRef.current = false;
+      scrollPositionRef.current = null;
+      lastEditedUserIdRef.current = null;
+    };
+
+    const attemptRestore = () => {
+      attempts += 1;
+
+      const position = scrollPositionRef.current;
+      let restored = false;
+
+      if (position !== null) {
+        restored = restoreScrollByPosition(position);
+      }
+
+      if (!restored) {
+        restored = scrollUserCardIntoView(lastEditedUserIdRef.current);
+      }
+
+      if (!restored && attempts < 8) {
+        animationFrameId = window.requestAnimationFrame(attemptRestore);
+        return;
+      }
+
+      resetRestorationState();
+    };
+
+    animationFrameId = window.requestAnimationFrame(attemptRestore);
+
+    return () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [loading, users]);
 
   // 数据加载函数
   const loadUsers = async () => {
@@ -246,6 +374,8 @@ export default function UserPage() {
   };
 
   const handleAdd = () => {
+    scrollPositionRef.current = null;
+    lastEditedUserIdRef.current = null;
     setIsEdit(false);
     setUserForm({
       user: '',
@@ -260,6 +390,8 @@ export default function UserPage() {
   };
 
   const handleEdit = (user: User) => {
+    scrollPositionRef.current = getCurrentScrollTop();
+    lastEditedUserIdRef.current = typeof user.id === 'number' ? user.id : null;
     setIsEdit(true);
     setUserForm({
       id: user.id,
@@ -316,9 +448,22 @@ export default function UserPage() {
       }
 
       const response = isEdit ? await updateUser(submitData) : await createUser(submitData);
-      
+
       if (response.code === 0) {
         toast.success(isEdit ? '更新成功' : '创建成功');
+        if (isEdit) {
+          if (scrollPositionRef.current === null) {
+            scrollPositionRef.current = getCurrentScrollTop();
+          }
+
+          if (typeof userForm.id === 'number') {
+            lastEditedUserIdRef.current = userForm.id;
+          }
+
+          if (scrollPositionRef.current !== null || lastEditedUserIdRef.current !== null) {
+            shouldRestoreScrollRef.current = true;
+          }
+        }
         onUserModalClose();
         loadUsers();
       } else {
@@ -603,8 +748,9 @@ export default function UserPage() {
             const flowPercent = user.flow > 0 ? Math.min((usedFlow / (user.flow * 1024 * 1024 * 1024)) * 100, 100) : 0;
             
             return (
-              <Card 
-                key={user.id} 
+              <Card
+                key={user.id}
+                data-user-id={user.id}
                 className="shadow-sm border border-divider hover:shadow-md transition-shadow duration-200"
               >
                 <CardHeader className="pb-2">
