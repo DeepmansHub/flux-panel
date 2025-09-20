@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Input } from "@heroui/input";
@@ -170,6 +170,8 @@ export default function UserPage() {
   // 其他数据
   const [tunnels, setTunnels] = useState<Tunnel[]>([]);
   const [speedLimits, setSpeedLimits] = useState<SpeedLimit[]>([]);
+  const scrollPositionRef = useRef<number | null>(null);
+  const shouldRestoreScrollRef = useRef(false);
 
   // 生命周期
   useEffect(() => {
@@ -177,6 +179,24 @@ export default function UserPage() {
     loadTunnels();
     loadSpeedLimits();
   }, [pagination.current, pagination.size, searchKeyword]);
+
+  useEffect(() => {
+    if (!loading && shouldRestoreScrollRef.current) {
+      const position = scrollPositionRef.current;
+
+      if (typeof window !== 'undefined' && position !== null) {
+        window.requestAnimationFrame(() => {
+          window.scrollTo({
+            top: position,
+            behavior: 'auto'
+          });
+        });
+      }
+
+      shouldRestoreScrollRef.current = false;
+      scrollPositionRef.current = null;
+    }
+  }, [loading]);
 
   // 数据加载函数
   const loadUsers = async () => {
@@ -316,9 +336,13 @@ export default function UserPage() {
       }
 
       const response = isEdit ? await updateUser(submitData) : await createUser(submitData);
-      
+
       if (response.code === 0) {
         toast.success(isEdit ? '更新成功' : '创建成功');
+        if (isEdit && typeof window !== 'undefined') {
+          scrollPositionRef.current = window.scrollY;
+          shouldRestoreScrollRef.current = true;
+        }
         onUserModalClose();
         loadUsers();
       } else {
