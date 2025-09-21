@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Input } from "@heroui/input";
@@ -171,6 +171,65 @@ export default function UserPage() {
   const [tunnels, setTunnels] = useState<Tunnel[]>([]);
   const [speedLimits, setSpeedLimits] = useState<SpeedLimit[]>([]);
 
+  const scrollRestoreRef = useRef<{ userId: number | null; position: number | null; relativeTop: number | null }>({
+    userId: null,
+    position: null,
+    relativeTop: null
+  });
+
+  const rememberScrollPosition = (userId: number | null) => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    let relativeTop: number | null = null;
+
+    if (userId !== null) {
+      const element = document.getElementById(`user-card-${userId}`);
+      if (element) {
+        relativeTop = element.getBoundingClientRect().top;
+      }
+    }
+
+    scrollRestoreRef.current = {
+      userId,
+      position: window.scrollY,
+      relativeTop
+    };
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    const { position, userId, relativeTop } = scrollRestoreRef.current;
+
+    if (loading || position === null) {
+      return;
+    }
+
+    const restore = () => {
+      if (userId !== null && relativeTop !== null) {
+        const element = document.getElementById(`user-card-${userId}`);
+        if (element) {
+          const absoluteTop = element.getBoundingClientRect().top + window.scrollY;
+          const targetPosition = absoluteTop - relativeTop;
+          window.scrollTo({ top: Math.max(targetPosition, 0), behavior: 'smooth' });
+          scrollRestoreRef.current = { userId: null, position: null, relativeTop: null };
+          return;
+        }
+      }
+
+      window.scrollTo({ top: Math.max(position, 0), behavior: 'smooth' });
+      scrollRestoreRef.current = { userId: null, position: null, relativeTop: null };
+    };
+
+    const rafId = window.requestAnimationFrame(restore);
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [loading, users]);
+
   // 生命周期
   useEffect(() => {
     loadUsers();
@@ -287,6 +346,7 @@ export default function UserPage() {
       const response = await deleteUser(userToDelete.id);
       if (response.code === 0) {
         toast.success('删除成功');
+        rememberScrollPosition(userToDelete.id);
         loadUsers();
         onDeleteModalClose();
         setUserToDelete(null);
@@ -316,9 +376,12 @@ export default function UserPage() {
       }
 
       const response = isEdit ? await updateUser(submitData) : await createUser(submitData);
-      
+
       if (response.code === 0) {
         toast.success(isEdit ? '更新成功' : '创建成功');
+        if (isEdit && userForm.id !== undefined) {
+          rememberScrollPosition(userForm.id);
+        }
         onUserModalClose();
         loadUsers();
       } else {
@@ -461,13 +524,14 @@ export default function UserPage() {
 
     setResetFlowLoading(true);
     try {
-      const response = await resetUserFlow({ 
-        id: userToReset.id, 
+      const response = await resetUserFlow({
+        id: userToReset.id,
         type: 1 // 1表示重置用户流量
       });
-      
+
       if (response.code === 0) {
         toast.success('流量重置成功');
+        rememberScrollPosition(userToReset.id);
         onResetFlowModalClose();
         setUserToReset(null);
         loadUsers(); // 重新加载用户列表
@@ -603,8 +667,9 @@ export default function UserPage() {
             const flowPercent = user.flow > 0 ? Math.min((usedFlow / (user.flow * 1024 * 1024 * 1024)) * 100, 100) : 0;
             
             return (
-              <Card 
-                key={user.id} 
+              <Card
+                key={user.id}
+                id={`user-card-${user.id}`}
                 className="shadow-sm border border-divider hover:shadow-md transition-shadow duration-200"
               >
                 <CardHeader className="pb-2">
