@@ -97,10 +97,12 @@ const calculateUserTotalUsedFlow = (user: User): number => {
 const calculateTunnelUsedFlow = (tunnel: UserTunnel): number => {
   const inFlow = tunnel.inFlow || 0;
   const outFlow = tunnel.outFlow || 0;
-  
+
   // 后端已按计费类型处理流量，前端直接使用入站+出站总和
   return inFlow + outFlow;
 };
+
+const LAST_UPDATED_USER_KEY = 'flux-panel:last-updated-user';
 
 export default function UserPage() {
   // 状态管理
@@ -170,6 +172,7 @@ export default function UserPage() {
   // 其他数据
   const [tunnels, setTunnels] = useState<Tunnel[]>([]);
   const [speedLimits, setSpeedLimits] = useState<SpeedLimit[]>([]);
+  const [hasAppliedLastUserScroll, setHasAppliedLastUserScroll] = useState(false);
 
   // 生命周期
   useEffect(() => {
@@ -177,6 +180,72 @@ export default function UserPage() {
     loadTunnels();
     loadSpeedLimits();
   }, [pagination.current, pagination.size, searchKeyword]);
+
+  useEffect(() => {
+    if (loading || hasAppliedLastUserScroll || users.length === 0) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const storedId = window.localStorage.getItem(LAST_UPDATED_USER_KEY);
+    if (!storedId) {
+      return;
+    }
+
+    const navigationEntries = window.performance?.getEntriesByType?.('navigation') as PerformanceNavigationTiming[] | undefined;
+    let isReload = navigationEntries?.[0]?.type === 'reload';
+
+    if (!isReload) {
+      const legacyNavigation = (window.performance as Performance & { navigation?: { type?: number } }).navigation;
+      if (legacyNavigation?.type === 1) {
+        isReload = true;
+      }
+    }
+
+    if (!isReload) {
+      return;
+    }
+
+    let timeoutId: number | undefined;
+
+    const finalizeScroll = () => {
+      window.localStorage.removeItem(LAST_UPDATED_USER_KEY);
+      setHasAppliedLastUserScroll(true);
+    };
+
+    const scrollToUserCard = () => {
+      const targetElement = document.getElementById(`user-card-${storedId}`);
+      if (!targetElement) {
+        return false;
+      }
+
+      requestAnimationFrame(() => {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetElement.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+        window.setTimeout(() => {
+          targetElement.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+        }, 3000);
+      });
+
+      finalizeScroll();
+      return true;
+    };
+
+    if (!scrollToUserCard()) {
+      timeoutId = window.setTimeout(() => {
+        scrollToUserCard();
+      }, 200);
+    }
+
+    return () => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [loading, users, hasAppliedLastUserScroll]);
 
   // 数据加载函数
   const loadUsers = async () => {
@@ -316,9 +385,16 @@ export default function UserPage() {
       }
 
       const response = isEdit ? await updateUser(submitData) : await createUser(submitData);
-      
+
       if (response.code === 0) {
         toast.success(isEdit ? '更新成功' : '创建成功');
+        if (isEdit && typeof window !== 'undefined') {
+          const updatedUserId = submitData.id ?? userForm.id;
+          if (updatedUserId) {
+            window.localStorage.setItem(LAST_UPDATED_USER_KEY, updatedUserId.toString());
+            setHasAppliedLastUserScroll(false);
+          }
+        }
         onUserModalClose();
         loadUsers();
       } else {
@@ -603,8 +679,9 @@ export default function UserPage() {
             const flowPercent = user.flow > 0 ? Math.min((usedFlow / (user.flow * 1024 * 1024 * 1024)) * 100, 100) : 0;
             
             return (
-              <Card 
-                key={user.id} 
+              <Card
+                key={user.id}
+                id={`user-card-${user.id}`}
                 className="shadow-sm border border-divider hover:shadow-md transition-shadow duration-200"
               >
                 <CardHeader className="pb-2">
