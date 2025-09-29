@@ -104,6 +104,34 @@ const calculateTunnelUsedFlow = (tunnel: UserTunnel): number => {
 
 const LAST_UPDATED_USER_KEY = 'flux-panel:last-updated-user';
 
+const userNameCollator = typeof Intl !== 'undefined' && Intl.Collator
+  ? new Intl.Collator(['zh-u-co-pinyin', 'en'], {
+      sensitivity: 'base',
+      ignorePunctuation: true
+    })
+  : null;
+
+const getComparableUserName = (user: User): string => {
+  return user.name?.trim() || user.user?.trim() || '';
+};
+
+const sortUsersByName = (list: User[]): User[] => {
+  return [...list].sort((a, b) => {
+    const nameA = getComparableUserName(a);
+    const nameB = getComparableUserName(b);
+
+    if (!nameA && !nameB) return 0;
+    if (!nameA) return 1;
+    if (!nameB) return -1;
+
+    if (userNameCollator) {
+      return userNameCollator.compare(nameA, nameB);
+    }
+
+    return nameA.localeCompare(nameB);
+  });
+};
+
 export default function UserPage() {
   // 状态管理
   const [users, setUsers] = useState<User[]>([]);
@@ -258,8 +286,11 @@ export default function UserPage() {
       });
       
       if (response.code === 0) {
-        const data = response.data || {};
-        setUsers(data || []);
+        const data = response.data || [];
+        const userList = Array.isArray(data)
+          ? data
+          : (data.list || data.records || data.rows || []);
+        setUsers(sortUsersByName(userList));
       } else {
         toast.error(response.msg || '获取用户列表失败');
       }
