@@ -443,7 +443,7 @@ export default function UserPage() {
     setCurrentUser(user);
     setTunnelForm({
       tunnelId: null,
-      flow: 100,
+      flow: user.flow ?? 100,
       num: 10,
       expTime: user.expTime ? new Date(user.expTime) : null,
       flowResetTime: user.flowResetTime ?? 0,
@@ -476,7 +476,7 @@ export default function UserPage() {
         // 分配成功后，保持到期时间默认沿用用户到期时间，便于连续分配多个隧道
         setTunnelForm({
           tunnelId: null,
-          flow: 100,
+          flow: currentUser.flow ?? 100,
           num: 10,
           expTime: currentUser.expTime ? new Date(currentUser.expTime) : null,
           flowResetTime: currentUser.flowResetTime ?? 0,
