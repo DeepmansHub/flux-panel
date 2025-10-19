@@ -59,6 +59,7 @@ public class UserTunnelServiceImpl extends ServiceImpl<UserTunnelMapper, UserTun
     private static final String ERROR_USER_TUNNEL_NOT_EXISTS = "用户隧道权限不存在";
     private static final String ERROR_NOT_EXISTS = "不存在";
     private static final String ERROR_UPDATE_FAILED = "用户隧道权限更新失败";
+    private static final String ERROR_USER_NOT_FOUND = "用户不存在";
 
     // ========== 依赖注入 ==========
     
@@ -92,20 +93,24 @@ public class UserTunnelServiceImpl extends ServiceImpl<UserTunnelMapper, UserTun
             return R.err(ERROR_PERMISSION_EXISTS);
         }
         
-        // 2. 创建用户隧道权限实体并保存
+        // 2. 查询用户信息
+        User user = userMapper.selectById(userTunnelDto.getUserId());
+        if (user == null) {
+            return R.err(ERROR_USER_NOT_FOUND);
+        }
+
+        // 3. 创建用户隧道权限实体并应用默认值
         UserTunnel userTunnel = buildUserTunnelEntity(userTunnelDto);
 
-        // 同步用户的默认到期时间和流量重置日期
-        if (userTunnel.getExpTime() == null || userTunnel.getFlowResetTime() == null) {
-            User user = userMapper.selectById(userTunnelDto.getUserId());
-            if (user != null) {
-                if (userTunnel.getExpTime() == null) {
-                    userTunnel.setExpTime(user.getExpTime());
-                }
-                if (userTunnel.getFlowResetTime() == null) {
-                    userTunnel.setFlowResetTime(user.getFlowResetTime());
-                }
-            }
+        if (userTunnel.getFlow() == null) {
+            userTunnel.setFlow(user.getFlow());
+        }
+
+        if (userTunnel.getExpTime() == null) {
+            userTunnel.setExpTime(user.getExpTime());
+        }
+        if (userTunnel.getFlowResetTime() == null) {
+            userTunnel.setFlowResetTime(user.getFlowResetTime());
         }
 
         // 设置默认状态为启用
