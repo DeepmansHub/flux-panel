@@ -72,7 +72,8 @@ const formatDate = (timestamp: number): string => {
 const getExpireStatus = (expTime: number) => {
   const now = Date.now();
   if (expTime < now) {
-    return { color: 'danger' as const, text: '已过期' };
+    const diffDays = Math.ceil((now - expTime) / (1000 * 60 * 60 * 24));
+    return { color: 'danger' as const, text: `已过期${diffDays}天` };
   }
   const diffDays = Math.ceil((expTime - now) / (1000 * 60 * 60 * 24));
   if (diffDays <= 7) {
