@@ -1,4 +1,4 @@
-name: Build and Push Vue or Spring Boot Images
+name: Build and Push Vue or Spring Boot Images - dev
 
 on:
   push:
