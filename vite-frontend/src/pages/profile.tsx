@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardBody } from "@heroui/card";
 import { Button } from "@heroui/button";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
@@ -100,13 +100,15 @@ export default function ProfilePage() {
 
   // 密码表单验证
   const validatePasswordForm = (): boolean => {
-    if (!passwordForm.newUsername.trim()) {
-      toast.error('请输入新用户名');
-      return false;
-    }
-    if (passwordForm.newUsername.length < 3) {
-      toast.error('用户名长度至少3位');
-      return false;
+    if (isAdmin) {
+      if (!passwordForm.newUsername.trim()) {
+        toast.error('请输入新用户名');
+        return false;
+      }
+      if (passwordForm.newUsername.length < 3) {
+        toast.error('用户名长度至少3位');
+        return false;
+      }
     }
     if (!passwordForm.currentPassword) {
       toast.error('请输入当前密码');
@@ -131,9 +133,14 @@ export default function ProfilePage() {
   const handlePasswordSubmit = async () => {
     if (!validatePasswordForm()) return;
 
+    const payload = {
+      ...passwordForm,
+      newUsername: isAdmin ? passwordForm.newUsername : username
+    };
+
     setPasswordLoading(true);
     try {
-      const response = await updatePassword(passwordForm);
+      const response = await updatePassword(payload);
       if (response.code === 0) {
         toast.success('密码修改成功，请重新登录');
         onOpenChange();
@@ -150,14 +157,23 @@ export default function ProfilePage() {
   };
 
   // 重置密码表单
-  const resetPasswordForm = () => {
+  const resetPasswordForm = useCallback(() => {
     setPasswordForm({
-      newUsername: '',
+      newUsername: isAdmin ? '' : username,
       currentPassword: '',
       newPassword: '',
       confirmPassword: ''
     });
-  };
+  }, [isAdmin, username]);
+
+  useEffect(() => {
+    if (isOpen && !isAdmin) {
+      setPasswordForm(prev => ({
+        ...prev,
+        newUsername: username
+      }));
+    }
+  }, [isOpen, isAdmin, username]);
 
   return (
     <div className="px-3 lg:px-6 py-8 flex flex-col h-full">
@@ -272,10 +288,15 @@ export default function ProfilePage() {
               <ModalBody>
                 <div className="space-y-4">
                   <Input
-                    label="新用户名"
-                    placeholder="请输入新用户名（至少3位）"
-                    value={passwordForm.newUsername}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPasswordForm(prev => ({ ...prev, newUsername: e.target.value }))}
+                    label={isAdmin ? '新用户名' : '用户名'}
+                    placeholder={isAdmin ? '请输入新用户名（至少3位）' : '当前用户名不可修改'}
+                    value={isAdmin ? passwordForm.newUsername : username}
+                    isReadOnly={!isAdmin}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      if (isAdmin) {
+                        setPasswordForm(prev => ({ ...prev, newUsername: e.target.value }));
+                      }
+                    }}
                     variant="bordered"
                   />
                   <Input
