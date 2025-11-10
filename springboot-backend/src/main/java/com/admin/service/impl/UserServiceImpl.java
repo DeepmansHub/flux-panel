@@ -243,6 +243,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 updateWrapper.set("flow_reset_time", userUpdateDto.getFlowResetTime());
                 tunnelNeedsUpdate = true;
             }
+            // 同步用户状态到已绑定的隧道
+            if (userUpdateDto.getStatus() != null) {
+                updateWrapper.set("status", userUpdateDto.getStatus());
+                tunnelNeedsUpdate = true;
+            }
+
             if (tunnelNeedsUpdate) {
                 userTunnelService.update(updateWrapper);
             }
