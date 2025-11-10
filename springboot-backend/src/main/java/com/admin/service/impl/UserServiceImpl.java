@@ -226,11 +226,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return updateValidationResult;
         }
 
-        // 4. 获取旧的用户状态用于对比
-        User oldUser = this.getById(userUpdateDto.getId());
-        Integer oldStatus = oldUser.getStatus();
-
-        // 5. 构建更新实体并保存
+        // 4. 构建更新实体并保存
         User updateUser = buildUpdateUserEntity(userUpdateDto);
         boolean result = this.updateById(updateUser);
 
@@ -249,9 +245,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
             if (tunnelNeedsUpdate) {
                 userTunnelService.update(updateWrapper);
-            }
-            if (userUpdateDto.getStatus() != null && !userUpdateDto.getStatus().equals(oldStatus)) {
-                syncUserTunnelStatus(userUpdateDto.getId(), userUpdateDto.getStatus());
             }
 
             // 5. 处理到期时间延时任务
@@ -387,43 +380,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     // ========== 私有辅助方法 ==========
 
-    
-    /**
-     * 同步用户隧道状态
-     * 当用户被启用/禁用时,将其所有已分配的隧道权限状态同步更新
-     * 
-     * @param userId 用户ID
-     * @param status 新的状态 (1:启用, 0:禁用)
-     */
-    private void syncUserTunnelStatus(Long userId, Integer status) {
-        try {
-            // 查询用户的所有隧道权限
-            List<UserTunnel> userTunnels = userTunnelService.list(
-                new QueryWrapper<UserTunnel>().eq("user_id", userId)
-            );
-            
-            if (userTunnels != null && !userTunnels.isEmpty()) {
-                // 批量更新隧道权限状态
-                for (UserTunnel userTunnel : userTunnels) {
-                    userTunnel.setStatus(status);
-                    userTunnel.setUpdatedTime(System.currentTimeMillis());
-                }
-                
-                // 批量更新到数据库
-                boolean updateResult = userTunnelService.updateBatchById(userTunnels);
-                
-                if (updateResult) {
-                    log.info("用户ID:{} 状态变更为:{},已同步更新 {} 条隧道权限状态", 
-                        userId, status == USER_STATUS_ACTIVE ? "启用" : "禁用", userTunnels.size());
-                } else {
-                    log.error("用户ID:{} 的隧道权限状态同步失败", userId);
-                }
-            }
-        } catch (Exception e) {
-            log.error("同步用户隧道状态时发生异常,用户ID:{}, 错误信息:{}", userId, e.getMessage(), e);
-            // 注意:这里不抛出异常,避免影响用户状态的更新
-        }
-    }
 
     /**
      * 验证用户登录凭据
