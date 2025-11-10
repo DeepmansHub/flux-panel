@@ -247,8 +247,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             if (userUpdateDto.getStatus() != null) {
                 updateWrapper.set("status", userUpdateDto.getStatus());
                 tunnelNeedsUpdate = true;
-                userUpdateDto.getId(), 
-                userUpdateDto.getStatus() == USER_STATUS_ACTIVE ? "启用" : "禁用");
             }
 
             if (tunnelNeedsUpdate) {
