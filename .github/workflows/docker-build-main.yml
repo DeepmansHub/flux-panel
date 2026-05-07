@@ -79,13 +79,13 @@ jobs:
         if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.gost == 'true') || (github.event_name == 'push' && steps.gost-changes.outputs.gost == 'true') }}
         working-directory: ./go-gost
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o gost
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o flux
 
       - name: Compress with UPX
         if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.gost == 'true') || (github.event_name == 'push' && steps.gost-changes.outputs.gost == 'true') }}
         working-directory: ./go-gost
         run: |
-          upx --best --lzma gost
+          upx --best --lzma flux
 
       - name: Create or Update Release
         if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.gost == 'true') || (github.event_name == 'push' && steps.gost-changes.outputs.gost == 'true') }}
@@ -112,7 +112,7 @@ jobs:
           fi
 
           # 上传 asset 并覆盖同名文件
-          gh release upload gost-latest ./go-gost/gost --clobber
+          gh release upload gost-latest ./go-gost/flux --clobber
 
 
   build-vite:
