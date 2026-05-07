@@ -15,9 +15,9 @@ var (
 )
 
 func init() {
-	v.SetConfigName("gost")
-	v.AddConfigPath("/etc/gost/")
-	v.AddConfigPath("$HOME/.gost/")
+	v.SetConfigName("flux")
+	v.AddConfigPath("/etc/flux/")
+	v.AddConfigPath("$HOME/.flux/")
 	v.AddConfigPath(".")
 }
 
