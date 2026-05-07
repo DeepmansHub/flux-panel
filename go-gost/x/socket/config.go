@@ -8,7 +8,7 @@ import (
 
 func saveConfig() {
 
-	file := "gost.json"
+	file := "flux.json"
 
 	f, err := os.Create(file)
 	if err != nil {

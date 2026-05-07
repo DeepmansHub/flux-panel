@@ -1,7 +1,7 @@
 #!/bin/bash
 # 下载地址
-DOWNLOAD_URL="https://github.com/deepmanshub/flux-panel/releases/download/gost-latest/gost"
-INSTALL_DIR="/etc/gost"
+DOWNLOAD_URL="https://github.com/deepmanshub/flux-panel/releases/download/gost-latest/flux"
+INSTALL_DIR="/etc/flux"
 COUNTRY=$(curl -s https://ipinfo.io/country)
 if [ "$COUNTRY" = "CN" ]; then
     # 拼接 URL
@@ -131,8 +131,8 @@ while getopts "a:s:" opt; do
 done
 
 # 安装功能
-install_gost() {
-  echo "🚀 开始安装 GOST..."
+install_flux() {
+  echo "🚀 开始安装 FLUX..."
   get_config_params
 
     # 检查并安装 tcpkill
@@ -142,27 +142,27 @@ install_gost() {
   mkdir -p "$INSTALL_DIR"
 
   # 停止并禁用已有服务
-  if systemctl list-units --full -all | grep -Fq "gost.service"; then
-    echo "🔍 检测到已存在的gost服务"
-    systemctl stop gost 2>/dev/null && echo "🛑 停止服务"
-    systemctl disable gost 2>/dev/null && echo "🚫 禁用自启"
+  if systemctl list-units --full -all | grep -Fq "flux.service"; then
+    echo "🔍 检测到已存在的flux服务"
+    systemctl stop flux 2>/dev/null && echo "🛑 停止服务"
+    systemctl disable flux 2>/dev/null && echo "🚫 禁用自启"
   fi
 
   # 删除旧文件
-  [[ -f "$INSTALL_DIR/gost" ]] && echo "🧹 删除旧文件 gost" && rm -f "$INSTALL_DIR/gost"
+  [[ -f "$INSTALL_DIR/flux" ]] && echo "🧹 删除旧文件 flux" && rm -f "$INSTALL_DIR/flux"
 
-  # 下载 gost
-  echo "⬇️ 下载 gost 中..."
-  curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/gost"
-  if [[ ! -f "$INSTALL_DIR/gost" || ! -s "$INSTALL_DIR/gost" ]]; then
+  # 下载 flux
+  echo "⬇️ 下载 flux 中..."
+  curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/flux"
+  if [[ ! -f "$INSTALL_DIR/flux" || ! -s "$INSTALL_DIR/flux" ]]; then
     echo "❌ 下载失败，请检查网络或下载链接。"
     exit 1
   fi
-  chmod +x "$INSTALL_DIR/gost"
+  chmod +x "$INSTALL_DIR/flux"
   echo "✅ 下载完成"
 
   # 打印版本
-  echo "🔎 gost 版本：$($INSTALL_DIR/gost -V)"
+  echo "🔎 flux 版本：$($INSTALL_DIR/flux -V)"
 
   # 写入 config.json (安装时总是创建新的)
   CONFIG_FILE="$INSTALL_DIR/config.json"
@@ -174,12 +174,12 @@ install_gost() {
 }
 EOF
 
-  # 写入 gost.json
-  GOST_CONFIG="$INSTALL_DIR/gost.json"
+  # 写入 flux.json
+  GOST_CONFIG="$INSTALL_DIR/flux.json"
   if [[ -f "$GOST_CONFIG" ]]; then
-    echo "⏭️ 跳过配置文件: gost.json (已存在)"
+    echo "⏭️ 跳过配置文件: flux.json (已存在)"
   else
-    echo "📄 创建新配置: gost.json"
+    echo "📄 创建新配置: flux.json"
     cat > "$GOST_CONFIG" <<EOF
 {}
 EOF
@@ -189,15 +189,15 @@ EOF
   chmod 600 "$INSTALL_DIR"/*.json
 
   # 创建 systemd 服务
-  SERVICE_FILE="/etc/systemd/system/gost.service"
+  SERVICE_FILE="/etc/systemd/system/flux.service"
   cat > "$SERVICE_FILE" <<EOF
 [Unit]
-Description=Gost Proxy Service
+Description=Flux Proxy Service
 After=network.target
 
 [Service]
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$INSTALL_DIR/gost
+ExecStart=$INSTALL_DIR/flux
 Restart=on-failure
 
 [Install]
@@ -206,27 +206,27 @@ EOF
 
   # 启动服务
   systemctl daemon-reload
-  systemctl enable gost
-  systemctl start gost
+  systemctl enable flux
+  systemctl start flux
 
   # 检查状态
   echo "🔄 检查服务状态..."
-  if systemctl is-active --quiet gost; then
-    echo "✅ 安装完成，gost服务已启动并设置为开机启动。"
+  if systemctl is-active --quiet flux; then
+    echo "✅ 安装完成，flux服务已启动并设置为开机启动。"
     echo "📁 配置目录: $INSTALL_DIR"
-    echo "🔧 服务状态: $(systemctl is-active gost)"
+    echo "🔧 服务状态: $(systemctl is-active flux)"
   else
-    echo "❌ gost服务启动失败，请执行以下命令查看日志："
-    echo "journalctl -u gost -f"
+    echo "❌ flux服务启动失败，请执行以下命令查看日志："
+    echo "journalctl -u flux -f"
   fi
 }
 
 # 更新功能
-update_gost() {
-  echo "🔄 开始更新 GOST..."
+update_flux() {
+  echo "🔄 开始更新 FLUX..."
   
   if [[ ! -d "$INSTALL_DIR" ]]; then
-    echo "❌ GOST 未安装，请先选择安装。"
+    echo "❌ FLUX 未安装，请先选择安装。"
     return 1
   fi
   
@@ -237,52 +237,52 @@ update_gost() {
   
   # 先下载新版本
   echo "⬇️ 下载最新版本..."
-  curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/gost.new"
-  if [[ ! -f "$INSTALL_DIR/gost.new" || ! -s "$INSTALL_DIR/gost.new" ]]; then
+  curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/flux.new"
+  if [[ ! -f "$INSTALL_DIR/flux.new" || ! -s "$INSTALL_DIR/flux.new" ]]; then
     echo "❌ 下载失败。"
     return 1
   fi
 
   # 停止服务
-  if systemctl list-units --full -all | grep -Fq "gost.service"; then
-    echo "🛑 停止 gost 服务..."
-    systemctl stop gost
+  if systemctl list-units --full -all | grep -Fq "flux.service"; then
+    echo "🛑 停止 flux 服务..."
+    systemctl stop flux
   fi
 
   # 替换文件
-  mv "$INSTALL_DIR/gost.new" "$INSTALL_DIR/gost"
-  chmod +x "$INSTALL_DIR/gost"
+  mv "$INSTALL_DIR/flux.new" "$INSTALL_DIR/flux"
+  chmod +x "$INSTALL_DIR/flux"
   
   # 打印版本
-  echo "🔎 新版本：$($INSTALL_DIR/gost -V)"
+  echo "🔎 新版本：$($INSTALL_DIR/flux -V)"
 
   # 重启服务
   echo "🔄 重启服务..."
-  systemctl start gost
+  systemctl start flux
   
   echo "✅ 更新完成，服务已重新启动。"
 }
 
 # 卸载功能
-uninstall_gost() {
-  echo "🗑️ 开始卸载 GOST..."
+uninstall_flux() {
+  echo "🗑️ 开始卸载 FLUX..."
   
-  read -p "确认卸载 GOST 吗？此操作将删除所有相关文件 (y/N): " confirm
+  read -p "确认卸载 FLUX 吗？此操作将删除所有相关文件 (y/N): " confirm
   if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
     echo "❌ 取消卸载"
     return 0
   fi
 
   # 停止并禁用服务
-  if systemctl list-units --full -all | grep -Fq "gost.service"; then
+  if systemctl list-units --full -all | grep -Fq "flux.service"; then
     echo "🛑 停止并禁用服务..."
-    systemctl stop gost 2>/dev/null
-    systemctl disable gost 2>/dev/null
+    systemctl stop flux 2>/dev/null
+    systemctl disable flux 2>/dev/null
   fi
 
   # 删除服务文件
-  if [[ -f "/etc/systemd/system/gost.service" ]]; then
-    rm -f "/etc/systemd/system/gost.service"
+  if [[ -f "/etc/systemd/system/flux.service" ]]; then
+    rm -f "/etc/systemd/system/flux.service"
     echo "🧹 删除服务文件"
   fi
 
@@ -302,7 +302,7 @@ uninstall_gost() {
 main() {
   # 如果提供了命令行参数，直接执行安装
   if [[ -n "$SERVER_ADDR" && -n "$SECRET" ]]; then
-    install_gost
+    install_flux
     delete_self
     exit 0
   fi
@@ -314,17 +314,17 @@ main() {
     
     case $choice in
       1)
-        install_gost
+        install_flux
         delete_self
         exit 0
         ;;
       2)
-        update_gost
+        update_flux
         delete_self
         exit 0
         ;;
       3)
-        uninstall_gost
+        uninstall_flux
         delete_self
         exit 0
         ;;
