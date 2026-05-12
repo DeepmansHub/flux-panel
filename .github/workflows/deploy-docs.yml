@@ -28,6 +28,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: vitepress/package-lock.json   # ← 关键修复！
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -38,7 +39,7 @@ jobs:
 
       - name: Build with VitePress
         working-directory: ./vitepress
-        run: npm run build
+        run: npm run build     # 如脚本名不同请改为实际名称
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
