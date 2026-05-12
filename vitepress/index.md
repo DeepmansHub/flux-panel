@@ -51,14 +51,6 @@ features:
 ---
 
 
-## 社区支持
-
-如果您在使用过程中遇到问题或有功能建议，欢迎：
-
-- 📱 [加入 Telegram 群组](https://t.me/+wdVDni1fdyI0YzE1)
-- 🐛 [报告问题](https://github.com/bqlpfy/flux-panel/issues)
-- 💡 [功能建议](https://github.com/bqlpfy/flux-panel/issues)
-- 🤝 [参与贡献](https://github.com/bqlpfy/flux-panel/pulls)
 
 ## 免责声明
 
@@ -66,4 +58,3 @@ features:
 
 ---
 
-**本网站由 [DreamCloud](https://whmcs.as211392.com/) 提供防御支持** 
