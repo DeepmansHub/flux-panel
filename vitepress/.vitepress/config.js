@@ -11,11 +11,6 @@ export default defineConfig({
       { text: '快速开始', link: '/getting-started' },
       { text: '使用指南', link: '/guide' },
       { text: '常见问题', link: '/faq' }
-    ],
-
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/bqlpfy/flux-panel' },
-      { icon: 'telegram', link: 'https://t.me/+wdVDni1fdyI0YzE1'}
     ]
   }
 })
