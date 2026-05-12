@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
+  base: '/flux-panel/',
   title: 'flux-panel',
   description: '基于gost的转发面板',
   
