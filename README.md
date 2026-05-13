@@ -61,13 +61,6 @@
 
 ## 部署流程
 
-### 源码编译部署
-
-```bash
-
-暂时没时间写，能源码部署的都是大佬，不差我这点文档
-```
----
 ### Docker Compose部署
 #### 快速部署
 
@@ -75,9 +68,6 @@
 curl -L https://raw.githubusercontent.com/deepmanshub/flux-panel/refs/heads/main/panel_install.sh -o panel_install.sh && chmod +x panel_install.sh && ./panel_install.sh
 
 ```
-
-
-
 
 #### 默认管理员账号
 
