@@ -13,6 +13,13 @@
 - **存储**: 至少 1GB 可用空间
 - **网络**: 确保相关端口未被占用
 
+## 安装 Docker
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+```
+
 ## 一键安装（推荐）
 
 我们提供了交互式安装脚本，会自动检测系统环境并引导您完成配置：
