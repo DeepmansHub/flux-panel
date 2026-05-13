@@ -56,12 +56,13 @@ check_ipv6_support() {
   echo "🔍 检测 IPv6 支持..."
 
   # 检查是否有 IPv6 地址（排除 link-local 地址）
-  if ip -6 addr show | grep -v "scope link" | grep -q "inet6"; then
+  # if ip -6 addr show | grep -v "scope link" | grep -q "inet6"; then
+  if ip -6 addr show scope global 2>/dev/null | grep -q 'inet6 '; then
     echo "✅ 检测到系统支持 IPv6"
-    return 1
-  elif ifconfig 2>/dev/null | grep -v "fe80:" | grep -q "inet6"; then
-    echo "✅ 检测到系统支持 IPv6"
-    return 1
+    return 0
+  # elif ifconfig 2>/dev/null | grep -v "fe80:" | grep -q "inet6"; then
+  #   echo "✅ 检测到系统支持 IPv6"
+  #   return 0
   else
     echo "⚠️ 未检测到 IPv6 支持"
     return 1
