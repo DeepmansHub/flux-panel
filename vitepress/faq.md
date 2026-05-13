@@ -1,5 +1,14 @@
 # 常见问题
 
+## 错误：未检测到 docker 或 docker-compose 命令。请先安装 Docker。
+
+请执行命令安装 docker 后再次运行安装脚本：
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+```
+
 ## 面板管理脚本
 
 安装、更新、卸载面板均使用同一条命令，运行后在菜单中选择对应操作：
