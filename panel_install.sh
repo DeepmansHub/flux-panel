@@ -202,6 +202,14 @@ install_panel() {
   echo "📡 选择配置文件：$(basename "$DOCKER_COMPOSE_URL")"
   curl -L -o docker-compose.yml "$DOCKER_COMPOSE_URL"
 
+  if [ ! -d "./backend_logs" ]; then
+    mkdir ./backend_logs
+  fi
+
+  if [ ! -d "./mysql_data" ]; then
+    mkdir ./mysql_data
+  fi
+
   # 检查 gost.sql 是否已存在
   if [[ -f "gost.sql" ]]; then
     echo "⏭️ 跳过下载: gost.sql (使用当前位置的文件)"
