@@ -1111,6 +1111,7 @@ uninstall_panel() {
   $DOCKER_CMD down --rmi all --volumes --remove-orphans
   echo "🧹 删除配置文件..."
   rm -f docker-compose.yml gost.sql .env
+  rm -rf ./backend_logs ./mysql_data
   echo "✅ 卸载完成"
 }
 
